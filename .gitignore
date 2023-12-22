@@ -1,4 +1,6 @@
 work/
 data/
+masked_bed/
+primer_bed/
 **/*.nextflow*
 **/*.DS_store
