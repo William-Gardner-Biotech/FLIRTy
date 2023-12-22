@@ -1,6 +1,6 @@
 work/
 data/
-masked_bed/
+masked_beds/
 primer_bed/
 **/*.nextflow*
 **/*.DS_store
