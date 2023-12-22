@@ -1,3 +1,4 @@
+work/
 data/
 **/*.nextflow*
 **/*.DS_store
