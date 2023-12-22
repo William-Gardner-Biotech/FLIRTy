@@ -45,7 +45,13 @@ with open(args.input, 'r') as primers:
     if args.slice == 'out':
         # Recursive function to find and create the amplicons
         OG_len = len(pos)
+        # TODO add a check for one unmatched FWD and one unmatched REV that would technically be even but not correspond to one another
         def build_out(positives, negatives, original_length, ref_seq, ampli_bed):
+            """
+            Recursive function that takes the list of FWD and REV primers and then looks for the minimums of each list.
+            Once found they are considered a pair because tiled amplicons will follow the logic of first primer set are furthest left on the sequence and therefore minimums.
+            We pop these out of the lists and add them to a growing list of the amplicon file.
+            """
             # Make the default bigger than the largest organism's genome (Japanese canopy plant)
             minimum = 149000000000
             for count, feat in enumerate(positives):
@@ -56,10 +62,12 @@ with open(args.input, 'r') as primers:
                     index = count
             pos1 = minimum
             positives.pop(index)
+            # Simple way to make the names unique and ascend as it goes along
             name1 = original_length-len(positives)
 
             minimum = 149000000000
             for count, feat in enumerate(negatives):
+                # RE will find the second match as this is where the matching minimum is located on the negatives
                 matches = re.findall(r'\b\d+\b', feat)
                 num2 = matches[1]
                 if int(num2) < minimum: 
@@ -82,8 +90,7 @@ with open(args.input, 'r') as primers:
                 return ampli_bed
             
         list_of_amplicons = build_out(pos, neg, OG_len, ref_seq_name, ampli_bed=[])
+        bulk_string = '\n'.join(list_of_amplicons)
 
-    for line in list_of_amplicons:
-        print(line)
-        
-            
+    with open(args.output, 'w') as bedfile:
+        bedfile.write(bulk_string)
