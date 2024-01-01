@@ -14,6 +14,10 @@ workflow {
         MATCH_AMP.out
     )
 
+    REMAP (
+        REMOVE_AMP_REGION.out
+    )
+
 }
 
 // process that will find the matching amplicon for the primer
@@ -49,7 +53,7 @@ process REMOVE_AMP_REGION {
     tuple val(primer), path(amplicon)
 
     output:
-    tuple val(primer), path("${amplicon}.sam")
+    tuple val(primer), path("${amplicon}.bam"), path("${amplicon}.fasta")
 
     script:
     """
@@ -61,10 +65,32 @@ process REMOVE_AMP_REGION {
 
     bedtools subtract -a ${amplicon}_raw.bed -b ${amplicon} > ${amplicon}_masked.bed
 
-    bedToBam -i ${amplicon}_masked.bed -g genome.txt > ${amplicon}.sam
+    bedtools getfasta -fi ${params.ref_genome} -bed ${amplicon}_masked.bed -fo ${amplicon}.fasta
+
+    bedToBam -i ${amplicon}_masked.bed -g genome.txt > ${amplicon}.bam
 
     """
 }
 
+process REMAP {
+    tag "${amplicon}"
+
+    input:
+    tuple val(primer), path(amplicon_bam), path(amplicon_fa)
+
+    output:
+    path "${amplicon_bam.getName().replace('.bam', '.fq')}"
+
+    publishDir "back2reads", mode: 'symlink'
+
+    script:
+
+    def amp = amplicon_bam.getName().replace(".bam", "")
+    """
+    samtools sort -o sorted_${amplicon_bam} ${amplicon_bam}
+
+    samtools fastq sorted_${amplicon_bam} > ${amplicon_bam.getName().replace('.bam', '.fq')}
+    """
+}
 
 
