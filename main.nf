@@ -14,17 +14,8 @@ workflow {
         MATCH_AMP.out
     )
 
-    BACK_MAP ( 
+    BACK_BLAST ( 
         REMOVE_AMP_REGION.out 
-    )
-
-    BUILD_BLAST_DB (
-        REMOVE_AMP_REGION.out
-    )
-
-    PERFORM_BLAST (
-        BUILD_BLAST_DB.out,
-        BACK_MAP.out
     )
 
 }
@@ -109,25 +100,36 @@ process REMOVE_AMP_REGION {
 }*/
 
 // This process will now map the original primer to 
-process BACK_MAP {
-    tag "${amplicon}"
+process BACK_BLAST {
+    tag "${primer_name}"
 
     input:
-    tuple val(primer), val( primer_name ), path( masked_read )
+    tuple val(primer), val( primer_name ), path( masked_reads )
 
     output:
-    tuple val( primer_name ), path( primer_fasta )
+    tuple val( primer_name ), path( primer_fasta ), path( blast_results ), path( rc_blast_results )
 
-    publishDir "primer_bed_back2reads", mode: 'Copy'
+    publishDir "BLASTED", mode: 'Copy'
 
     script:
     primer_fasta = primer_name + "_primer.fa"
+    blast_results = primer_name + "_results.txt"
+    rc_blast_results = "RC_" + primer_name + "_results.txt"
     """
     # echo stored value into a bed file for use by bedtools
     echo "${primer}" > ${primer_name}_primer.bed
 
     # Extract the fasta from the bed
     bedtools getfasta -fi ${params.ref_genome} -bed ${primer_name}_primer.bed -fo ${primer_fasta}
+
+    makeblastdb -in ${masked_reads} -dbtype nucl -out ${primer_name}_db
+
+    blastn -query ${primer_fasta} -db ${primer_name}_db -out ${blast_results} -evalue 20 -task blastn-short
+
+    awk '/^>/ {print ">RC_"\$0; getline seq} {print seq | "rev | tr ATCG TAGC"; close("rev | tr ATCG TAGC")}' ${primer_fasta} > RC_${primer_fasta}
+
+    blastn -query RC_${primer_fasta} -db ${primer_name}_db -out ${rc_blast_results} -evalue 20 -task blastn-short
+
     """
 }
 
@@ -136,7 +138,7 @@ process BUILD_BLAST_DB {
 
     tag "${primer_name}"
 
-    publishDir "BLASTDBs", mode: 'symlink'
+    publishDir "BLASTDBs", mode: 'symlink', pattern: "${primer_name}_db.*"
 
     errorStrategy { sleep(Math.pow(2, task.attempt) * 200 as long); return 'retry' }
     maxRetries 5
@@ -145,12 +147,11 @@ process BUILD_BLAST_DB {
     tuple val( primer ), val( primer_name ), path( masked_reads )
 
     output:
-    path blast_db
+    tuple val( primer_name ), path( "${primer_name}_db.*" )
 
     script:
-    
     """
-    makeblastdb -in ${masked_reads} -dbtype nucl -out ${blast_db}
+    makeblastdb -in ${masked_reads} -dbtype nucl -out ${primer_name}_db
     """
 }
 
@@ -161,15 +162,17 @@ process PERFORM_BLAST {
     publishDir "BLAST_RESULTS", mode: 'symlink'
 
     input:
-    path blast_db
+    tuple val( blast_db_name ), path( blast_db_files )
     tuple val( primer_name ), path( query_primer )
 
     output:
     tuple val( primer_name ), path( blast_results )
 
     script:
+
     blast_results = primer_name + "_blast_results.txt"
+
     """
-    blastn -query ${query_primer} -db ${blast_db} -out ${blast_results}
+    blastn -query ${query_primer} -db ${blast_db_name} -out ${blast_results} -evalue 0.1
     """
 }
