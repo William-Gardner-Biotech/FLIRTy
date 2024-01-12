@@ -124,15 +124,16 @@ process BACK_BLAST {
 
     makeblastdb -in ${masked_reads} -dbtype nucl -out ${primer_name}_db
 
-    blastn -query ${primer_fasta} -db ${primer_name}_db -out ${blast_results} -evalue 20 -task blastn-short
+    blastn -query ${primer_fasta} -db ${primer_name}_db -out ${blast_results} -evalue 15 -task blastn-short
 
+    # awk command to make a reverse complement and BLAST it as well
     awk '/^>/ {print ">RC_"\$0; getline seq} {print seq | "rev | tr ATCG TAGC"; close("rev | tr ATCG TAGC")}' ${primer_fasta} > RC_${primer_fasta}
 
-    blastn -query RC_${primer_fasta} -db ${primer_name}_db -out ${rc_blast_results} -evalue 20 -task blastn-short
+    blastn -query RC_${primer_fasta} -db ${primer_name}_db -out ${rc_blast_results} -evalue 15 -task blastn-short
 
     """
 }
-
+// Add a slider feature that detects if there are results at x E-val then slides differently to find more or less
 // Build a new blastdb for each different primer as diff amplicons remove diff reads
 process BUILD_BLAST_DB {
 
