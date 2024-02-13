@@ -2,6 +2,21 @@
 
 nextflow.enable.dsl=2
 
+log.info """
+
+
+        ███████╗██╗     ██╗██████╗ ████████╗██╗   ██╗
+        ██╔════╝██║     ██║██╔══██╗╚══██╔══╝╚██╗ ██╔╝
+        █████╗  ██║     ██║██████╔╝   ██║    ╚████╔╝ 
+        ██╔══╝  ██║     ██║██╔══██╗   ██║     ╚██╔╝  
+        ██║     ███████╗██║██║  ██║   ██║      ██║   
+        ╚═╝     ╚══════╝╚═╝╚═╝  ╚═╝   ╚═╝      ╚═╝   
+                                                    
+
+
+""".stripIndent()
+
+
 workflow {
 
     ch_primers = Channel
@@ -44,8 +59,10 @@ process MATCH_AMP {
     """
 }
 
-// 
-// process that will take the bam file and remove any reads found in the amplicon region
+ /* 
+Process that will take the bam file and remove any reads found in the amplicon region,
+Then keeps the new bam and respective primers together for mapping/blasting
+*/
 process REMOVE_AMP_REGION {
     
     tag "${primer_name}"
@@ -99,7 +116,7 @@ process REMOVE_AMP_REGION {
     """
 }*/
 
-// This process will now map the original primer to 
+// This process will now attempt to align the original primer to all the reads found outside the amplicon region
 process BACK_BLAST {
     tag "${primer_name}"
 
@@ -131,9 +148,26 @@ process BACK_BLAST {
 
     blastn -query RC_${primer_fasta} -db ${primer_name}_db -out ${rc_blast_results} -evalue 15 -task blastn-short
 
+
     """
 }
+
 // Add a slider feature that detects if there are results at x E-val then slides differently to find more or less
+
+// process CHUNK_MAP
+/*
+A process that will take identified sequence from the blast query, extract and map it to the original genome to see if it falls outside the boundaries
+This will reinforce the indirect effect score
+*/
+
+// process SKETCHY
+
+
+/*
+A process that will sketch the genome and find the most common k-mer's then check all the primers against the most abundant k-mers
+For a score of basicness
+*/
+
 // Build a new blastdb for each different primer as diff amplicons remove diff reads
 process BUILD_BLAST_DB {
 
